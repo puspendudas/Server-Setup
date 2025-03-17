@@ -205,6 +205,11 @@ main() {
     
     log "SUCCESS" "${EMOJI_DONE} Server setup completed successfully!"
     log "INFO" "${EMOJI_SYSTEM} Log file available at: $LOG_FILE"
+    
+    # Delete the script file
+    log "INFO" "${EMOJI_SYSTEM} Cleaning up setup script..."
+    rm -f "$0"
+    log "SUCCESS" "${EMOJI_DONE} Setup script removed successfully!"
 }
 
 # Execute main function
