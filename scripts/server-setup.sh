@@ -8,24 +8,49 @@ LOG_FILE="/var/log/server-setup.log"
 DOCKER_COMPOSE_VERSION="v2.3.3"
 SSH_KEY_TYPE="ed25519"
 SSH_KEY_PATH="$HOME/.ssh/id_ED25519"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}")"
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+# Check if running through a pipe
+if [ -t 1 ]; then
+    # Terminal output - use colors and formatting
+    RED='\033[0;31m'
+    GREEN='\033[0;32m'
+    YELLOW='\033[1;33m'
+    NC='\033[0m' # No Color
+    
+    # Emojis for different log levels
+    EMOJI_INFO="📝"
+    EMOJI_SUCCESS="✅"
+    EMOJI_ERROR="❌"
+    EMOJI_WARNING="⚠️"
+    EMOJI_START="🚀"
+    EMOJI_DOCKER="🐳"
+    EMOJI_CADDY="🌐"
+    EMOJI_SSH="🔑"
+    EMOJI_SYSTEM="⚙️"
+    EMOJI_DONE="✨"
+else
+    # Piped output - no colors or emojis
+    RED=''
+    GREEN=''
+    YELLOW=''
+    NC=''
+    EMOJI_INFO="[INFO]"
+    EMOJI_SUCCESS="[SUCCESS]"
+    EMOJI_ERROR="[ERROR]"
+    EMOJI_WARNING="[WARNING]"
+    EMOJI_START="[START]"
+    EMOJI_DOCKER="[DOCKER]"
+    EMOJI_CADDY="[CADDY]"
+    EMOJI_SSH="[SSH]"
+    EMOJI_SYSTEM="[SYSTEM]"
+    EMOJI_DONE="[DONE]"
+fi
 
-# Emojis for different log levels
-EMOJI_INFO="📝"
-EMOJI_SUCCESS="✅"
-EMOJI_ERROR="❌"
-EMOJI_WARNING="⚠️"
-EMOJI_START="🚀"
-EMOJI_DOCKER="🐳"
-EMOJI_CADDY="🌐"
-EMOJI_SSH="🔑"
-EMOJI_SYSTEM="⚙️"
-EMOJI_DONE="✨"
+# Trap signals
+trap 'cleanup' EXIT
+trap 'handle_error ${LINENO}' ERR
 
 # Logging function
 log() {
@@ -59,23 +84,51 @@ handle_error() {
     local exit_code=$?
     local line_number=$1
     log "ERROR" "Error occurred in line ${line_number} with exit code ${exit_code}"
+    cleanup
     exit $exit_code
 }
 
-# Trap errors
-trap 'handle_error ${LINENO}' ERR
+# Cleanup function
+cleanup() {
+    local exit_code=$?
+    if [ $exit_code -eq 0 ]; then
+        log "INFO" "${EMOJI_SYSTEM} Cleaning up setup script..."
+        rm -f "$0"
+        log "SUCCESS" "${EMOJI_DONE} Setup script removed successfully!"
+    fi
+}
+
+# Check dependencies
+check_dependencies() {
+    log "INFO" "${EMOJI_SYSTEM} Checking system dependencies..."
+    
+    # Check for required commands
+    local required_commands=("curl" "gpg" "apt-get" "systemctl")
+    for cmd in "${required_commands[@]}"; do
+        if ! command -v "$cmd" &> /dev/null; then
+            log "ERROR" "Required command '$cmd' is not installed"
+            exit 1
+        fi
+    done
+    
+    log "SUCCESS" "All required dependencies are installed"
+}
 
 # Check if running as root
-if [ "$EUID" -ne 0 ]; then 
-    log "ERROR" "Please run as root"
-    exit 1
-fi
+check_root() {
+    if [ "$EUID" -ne 0 ]; then 
+        log "ERROR" "Please run as root"
+        exit 1
+    fi
+}
 
 # Check if running on Ubuntu
-if ! grep -q "Ubuntu" /etc/os-release; then
-    log "ERROR" "This script is designed for Ubuntu only"
-    exit 1
-fi
+check_ubuntu() {
+    if ! grep -q "Ubuntu" /etc/os-release; then
+        log "ERROR" "This script is designed for Ubuntu only"
+        exit 1
+    fi
+}
 
 # Function to check if a command was successful
 check_status() {
@@ -95,6 +148,41 @@ get_email() {
         get_email
     fi
 }
+
+# Show help/usage
+show_help() {
+    echo "Usage: $SCRIPT_NAME [OPTIONS]"
+    echo
+    echo "Options:"
+    echo "  -h, --help     Show this help message"
+    echo "  -v, --version  Show version information"
+    echo
+    echo "This script sets up a server with Docker, Docker Compose, Caddy, and SSH key generation."
+    exit 0
+}
+
+# Show version
+show_version() {
+    echo "Server Setup Script v1.0.0"
+    exit 0
+}
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -h|--help)
+            show_help
+            ;;
+        -v|--version)
+            show_version
+            ;;
+        *)
+            log "ERROR" "Unknown option: $1"
+            show_help
+            ;;
+    esac
+    shift
+done
 
 # Main installation function
 install_docker() {
@@ -197,6 +285,11 @@ main() {
     touch "$LOG_FILE"
     chmod 644 "$LOG_FILE"
     
+    # Run checks
+    check_root
+    check_ubuntu
+    check_dependencies
+    
     # Install components
     install_docker
     install_docker_compose
@@ -205,12 +298,7 @@ main() {
     
     log "SUCCESS" "${EMOJI_DONE} Server setup completed successfully!"
     log "INFO" "${EMOJI_SYSTEM} Log file available at: $LOG_FILE"
-    
-    # Delete the script file
-    log "INFO" "${EMOJI_SYSTEM} Cleaning up setup script..."
-    rm -f "$0"
-    log "SUCCESS" "${EMOJI_DONE} Setup script removed successfully!"
 }
 
 # Execute main function
-main
+main 
