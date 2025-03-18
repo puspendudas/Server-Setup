@@ -33,12 +33,27 @@ async def run_script(script_name: str):
         os.chmod(script_path, current_mode | stat.S_IEXEC)
         logger.info(f"Script permissions set: {script_path}")
         
+        # Set up environment variables
+        env = {
+            "HOME": "/root",
+            "TERM": "xterm-256color",
+            "PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+            "USER": "root",
+            "LANG": "C.UTF-8",
+            "LC_ALL": "C.UTF-8",
+            "SSH_KEY_PATH": "/root/.ssh/id_ED25519"
+        }
+        
+        # Create .ssh directory if it doesn't exist
+        os.makedirs("/root/.ssh", exist_ok=True)
+        os.chmod("/root/.ssh", 0o700)
+        
         # Run script and capture output
         result = subprocess.run(
             ["/bin/bash", script_path],
             capture_output=True,
             text=True,
-            env={"TERM": "xterm-256color"}  # Enable color output
+            env=env
         )
         
         # Log the output for debugging
