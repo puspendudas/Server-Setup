@@ -28,47 +28,23 @@ async def run_script(script_name: str):
         )
 
     try:
-        # Make script executable
-        current_mode = os.stat(script_path).st_mode
-        os.chmod(script_path, current_mode | stat.S_IEXEC)
-        logger.info(f"Script permissions set: {script_path}")
-        
-        # Set up environment variables
-        env = {
-            "HOME": "/root",
-            "TERM": "xterm-256color",
-            "PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-            "USER": "root",
-            "LANG": "C.UTF-8",
-            "LC_ALL": "C.UTF-8",
-            "SSH_KEY_PATH": "/root/.ssh/id_ED25519"
-        }
-        
-        # Create .ssh directory if it doesn't exist
-        os.makedirs("/root/.ssh", exist_ok=True)
-        os.chmod("/root/.ssh", 0o700)
-        
-        # Run script and capture output
-        result = subprocess.run(
-            ["/bin/bash", script_path],
-            capture_output=True,
-            text=True,
-            env=env
+        # Read and return the script content directly
+        with open(script_path, 'r') as f:
+            content = f.read()
+            
+        # Set proper headers for script download
+        return Response(
+            content=content,
+            media_type="text/plain",
+            headers={
+                "Content-Disposition": f'attachment; filename="{script_name}"'
+            }
         )
         
-        # Log the output for debugging
-        if result.stdout:
-            logger.info("Script stdout: %s", result.stdout)
-        if result.stderr:
-            logger.error("Script stderr: %s", result.stderr)
-        
-        # Return the output directly
-        return result.stdout or result.stderr
-        
     except Exception as e:
-        logger.error(f"Error executing script: {str(e)}")
+        logger.error(f"Error reading script: {str(e)}")
         return Response(
-            content=f"Error executing script: {str(e)}",
+            content=f"Error reading script: {str(e)}",
             status_code=500,
             media_type="text/plain"
         )
