@@ -8,8 +8,15 @@ LOG_FILE="/var/log/server-setup.log"
 DOCKER_COMPOSE_VERSION="v2.3.3"
 SSH_KEY_TYPE="ed25519"
 SSH_KEY_PATH="$HOME/.ssh/id_ED25519"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}")"
+
+# Get script directory and name with fallback
+if [ -n "${BASH_SOURCE[0]:-}" ]; then
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}")"
+else
+    SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+    SCRIPT_NAME="$(basename "$0")"
+fi
 
 # Check if running through a pipe
 if [ -t 1 ]; then
