@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  script-runner:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./scripts:/scripts  # Mount the scripts folder inside the container
+    environment:
+      - SCRIPT_DIR=/scripts  # Define the script directory as an environment variable
