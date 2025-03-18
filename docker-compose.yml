@@ -7,6 +7,8 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./scripts:/scripts  # Mount the scripts folder inside the container
+      - ./scripts:/scripts:ro
+      - ./app:/app
     environment:
-      - SCRIPT_DIR=/scripts  # Define the script directory as an environment variable
+      - SCRIPT_DIR=/scripts
+    restart: unless-stopped
