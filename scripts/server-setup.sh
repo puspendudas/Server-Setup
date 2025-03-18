@@ -76,7 +76,8 @@ log() {
         *) color=$NC ;;
     esac
     
-    echo -e "${color}${timestamp} [${emoji} ${level}] ${message}${NC}" | tee -a "$LOG_FILE"
+    # Print to console and log file
+    printf "%s [%s %s] %s\n" "$timestamp" "$emoji" "$level" "$message" | tee -a "$LOG_FILE"
 }
 
 # Error handling function
@@ -92,15 +93,15 @@ handle_error() {
 cleanup() {
     local exit_code=$?
     if [ $exit_code -eq 0 ]; then
-        log "INFO" "${EMOJI_SYSTEM} Cleaning up setup script..."
+        log "INFO" "Cleaning up setup script..."
         rm -f "$0"
-        log "SUCCESS" "${EMOJI_DONE} Setup script removed successfully!"
+        log "SUCCESS" "Setup script removed successfully!"
     fi
 }
 
 # Check dependencies
 check_dependencies() {
-    log "INFO" "${EMOJI_SYSTEM} Checking system dependencies..."
+    log "INFO" "Checking system dependencies..."
     
     # Check for required commands
     local required_commands=("curl" "gpg" "apt-get" "systemctl")
@@ -124,10 +125,50 @@ check_root() {
 
 # Check if running on Ubuntu
 check_ubuntu() {
-    if ! grep -q "Ubuntu" /etc/os-release; then
+    log "INFO" "Checking system requirements..."
+    
+    # Check if running on a Debian-based system
+    if [ ! -f /etc/debian_version ]; then
+        log "ERROR" "This script is designed for Debian-based systems only"
+        exit 1
+    fi
+    
+    # Check if running on Ubuntu
+    if ! grep -q "ID=ubuntu" /etc/os-release; then
         log "ERROR" "This script is designed for Ubuntu only"
         exit 1
     fi
+    
+    # Get Ubuntu version
+    UBUNTU_VERSION=$(grep "VERSION_ID" /etc/os-release | cut -d'"' -f2)
+    UBUNTU_CODENAME=$(grep "UBUNTU_CODENAME" /etc/os-release | cut -d'=' -f2)
+    
+    log "INFO" "Detected Ubuntu version: $UBUNTU_VERSION ($UBUNTU_CODENAME)"
+    
+    # Check if running on a supported architecture
+    ARCH=$(dpkg --print-architecture)
+    case $ARCH in
+        amd64|arm64)
+            log "INFO" "Detected supported architecture: $ARCH"
+            ;;
+        *)
+            log "ERROR" "Unsupported architecture: $ARCH. This script supports amd64 and arm64 only."
+            exit 1
+            ;;
+    esac
+    
+    # Check system requirements
+    local total_mem=$(free -m | awk '/^Mem:/{print $2}')
+    if [ "$total_mem" -lt 2048 ]; then
+        log "WARNING" "System has less than 2GB RAM. Some operations might be slow or fail."
+    fi
+    
+    local free_space=$(df -m / | awk 'NR==2 {print $4}')
+    if [ "$free_space" -lt 10240 ]; then
+        log "WARNING" "Less than 10GB free space available. Some operations might fail."
+    fi
+    
+    log "SUCCESS" "System requirements check passed"
 }
 
 # Function to check if a command was successful
@@ -142,7 +183,8 @@ check_status() {
 
 # Function to prompt for email
 get_email() {
-    read -p "${EMOJI_SSH} Enter your email for SSH key generation: " email
+    printf "Enter your email for SSH key generation: "
+    read -r email
     if [ -z "$email" ]; then
         log "ERROR" "Email cannot be empty"
         get_email
@@ -151,19 +193,17 @@ get_email() {
 
 # Show help/usage
 show_help() {
-    echo "Usage: $SCRIPT_NAME [OPTIONS]"
-    echo
-    echo "Options:"
-    echo "  -h, --help     Show this help message"
-    echo "  -v, --version  Show version information"
-    echo
-    echo "This script sets up a server with Docker, Docker Compose, Caddy, and SSH key generation."
+    printf "Usage: %s [OPTIONS]\n\n" "$SCRIPT_NAME"
+    printf "Options:\n"
+    printf "  -h, --help     Show this help message\n"
+    printf "  -v, --version  Show version information\n\n"
+    printf "This script sets up a server with Docker, Docker Compose, Caddy, and SSH key generation.\n"
     exit 0
 }
 
 # Show version
 show_version() {
-    echo "Server Setup Script v1.0.0"
+    printf "Server Setup Script v1.0.0\n"
     exit 0
 }
 
@@ -186,25 +226,25 @@ done
 
 # Main installation function
 install_docker() {
-    log "INFO" "${EMOJI_DOCKER} Installing Docker..."
+    log "INFO" "Installing Docker..."
     
     # Update package list
-    log "INFO" "${EMOJI_SYSTEM} Updating package list..."
+    log "INFO" "Updating package list..."
     apt-get update
     check_status "Package list update"
 
     # Install prerequisites
-    log "INFO" "${EMOJI_SYSTEM} Installing Docker prerequisites..."
+    log "INFO" "Installing Docker prerequisites..."
     apt-get install -y apt-transport-https ca-certificates curl software-properties-common
     check_status "Docker prerequisites installation"
 
     # Add Docker GPG key
-    log "INFO" "${EMOJI_SSH} Adding Docker GPG key..."
+    log "INFO" "Adding Docker GPG key..."
     curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
     check_status "Docker GPG key addition"
 
     # Add Docker repository
-    log "INFO" "${EMOJI_SYSTEM} Adding Docker repository..."
+    log "INFO" "Adding Docker repository..."
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
     check_status "Docker repository addition"
 
@@ -224,7 +264,7 @@ install_docker() {
 
 # Install Docker Compose
 install_docker_compose() {
-    log "INFO" "${EMOJI_DOCKER} Installing Docker Compose..."
+    log "INFO" "Installing Docker Compose..."
     
     mkdir -p /usr/local/lib/docker/cli-plugins/
     curl -SL "https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-linux-x86_64" -o /usr/local/lib/docker/cli-plugins/docker-compose
@@ -236,7 +276,7 @@ install_docker_compose() {
 
 # Install Caddy
 install_caddy() {
-    log "INFO" "${EMOJI_CADDY} Installing Caddy..."
+    log "INFO" "Installing Caddy..."
     
     apt-get install -y debian-keyring debian-archive-keyring apt-transport-https curl
     check_status "Caddy prerequisites"
@@ -259,7 +299,7 @@ install_caddy() {
 
 # Generate SSH key
 generate_ssh_key() {
-    log "INFO" "${EMOJI_SSH} Generating SSH key..."
+    log "INFO" "Generating SSH key..."
     
     # Create .ssh directory if it doesn't exist
     mkdir -p "$HOME/.ssh"
@@ -273,13 +313,13 @@ generate_ssh_key() {
     chmod 600 "$SSH_KEY_PATH"
     chmod 644 "$SSH_KEY_PATH.pub"
     
-    log "INFO" "${EMOJI_SSH} Your SSH public key:"
+    log "INFO" "Your SSH public key:"
     cat "$SSH_KEY_PATH.pub"
 }
 
 # Main execution
 main() {
-    log "INFO" "${EMOJI_START} Starting server setup..."
+    log "INFO" "Starting server setup..."
     
     # Create log file
     touch "$LOG_FILE"
@@ -296,8 +336,8 @@ main() {
     install_caddy
     generate_ssh_key
     
-    log "SUCCESS" "${EMOJI_DONE} Server setup completed successfully!"
-    log "INFO" "${EMOJI_SYSTEM} Log file available at: $LOG_FILE"
+    log "SUCCESS" "Server setup completed successfully!"
+    log "INFO" "Log file available at: $LOG_FILE"
 }
 
 # Execute main function
