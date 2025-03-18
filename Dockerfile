@@ -17,10 +17,7 @@ COPY scripts/ /scripts/
 
 # Set proper permissions
 RUN chmod -R 755 /scripts && \
-    chmod -R 755 /app
-
-# Verify script exists and is executable
-RUN ls -la /scripts/server-setup.sh && \
-    chmod +x /scripts/server-setup.sh
+    chmod -R 755 /app && \
+    chmod +x /scripts/*.sh
 
 CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8000"]

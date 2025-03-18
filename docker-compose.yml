@@ -7,7 +7,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./scripts:/scripts:ro
+      - ./scripts:/scripts
       - ./app:/app
     environment:
       - SCRIPT_DIR=/scripts

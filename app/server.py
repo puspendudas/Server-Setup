@@ -3,6 +3,7 @@ from fastapi.responses import PlainTextResponse
 import subprocess
 import os
 import logging
+import stat
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -28,7 +29,8 @@ async def run_script(script_name: str):
 
     try:
         # Make script executable
-        os.chmod(script_path, 0o755)
+        current_mode = os.stat(script_path).st_mode
+        os.chmod(script_path, current_mode | stat.S_IEXEC)
         logger.info(f"Script permissions set: {script_path}")
         
         # Run script and capture output
